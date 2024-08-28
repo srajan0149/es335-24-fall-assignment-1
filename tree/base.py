@@ -40,30 +40,29 @@ class DecisionTree:
         self.criterion = criterion
         self.max_depth = max_depth
         self.tree = None
-        print("Returning self")
 
     def build(self, X: pd.DataFrame, y: pd.Series, depth = 0):
+        if len(y)==0:
+            return None
         num_samples, num_features = np.shape(X)
         features = pd.Series(X.columns)
-        print("features",features)
-        print(f"depth:{depth}")
         # splitting till max depth
         if depth<self.max_depth:
             
             # finding the best split
             best_attribute = opt_split_attribute(X, y, self.criterion, features)
-            print(f"Best attribute: {best_attribute}")
+
             threshold_value = best_split_point(y,X[best_attribute])[0]
 
             # splitting the dataset
-            split_dataset = split_data(X, y, best_attribute, threshold_value)
+            split_dataset = split_data(X, y, X[best_attribute], threshold_value)
 
             # recur left
-            left_subtree = self.build_tree(split_dataset[0], split_dataset[2], depth+1)
+            left_subtree = self.build(split_dataset[0], split_dataset[2], depth+1)
             # recur right
-            right_subtree = self.build_tree(split_dataset[1], split_dataset[3], depth+1)
+            right_subtree = self.build(split_dataset[1], split_dataset[3], depth+1)
             # return decision node
-            return Node(best_attribute, threshold_value, left_subtree, right_subtree, information_gain(y,best_attribute,criterion=self.criterion))
+            return Node(best_attribute, threshold_value, left_subtree, right_subtree, information_gain(y,X[best_attribute],criterion=self.criterion))
         
         # leaf_value = self.calculate_leaf_value(X.iloc[:, -1])
         leaf_value = self.calc_leaf_value(y)
@@ -81,10 +80,10 @@ class DecisionTree:
         self.tree = self.build(X,y)
         pass
 
-    def _predict_single_row(self, x: pd.Series, curr_node = None):
+    def _predict_single_row(self, x: pd.Series, curr_node):
         if curr_node is None:
-            curr_node = self.tree
-
+            return 0
+        
         if curr_node.is_leaf():
                 return curr_node.value
             
@@ -105,7 +104,7 @@ class DecisionTree:
         if not check_ifreal(X.iloc[:,0]):
             X = one_hot_encoding(X)
 
-        predictions = pd.Series([self._predict_single_row(x) for x in X.iterrows()])
+        predictions = pd.Series([self._predict_single_row(S,self.tree) for x,S in X.iterrows()])
         return predictions
     
     def _print_tree_recursive(self, node, depth):
@@ -138,9 +137,12 @@ class DecisionTree:
 
     def calc_leaf_value(self, Y):
         ''' function to compute leaf node '''
-        
+        if len(Y)==0:
+            return None
         Y = pd.Series(Y)
         if(check_ifreal(Y)):
             return np.mean(Y)
         else:
-            return np.mode(Y)
+            counts = Y.value_counts()
+            most_occuring_value = counts.idxmax()
+            return most_occuring_value

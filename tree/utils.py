@@ -54,28 +54,33 @@ def MSE(Y: pd.Series) -> float:
     Function to calculate mean square error aka variance.
     Note: Only applicable for real input data
     """
+    if len(Y)==0:
+        return 0
+    Y_mean = np.mean(Y)
+    Y2 = (Y - Y_mean)**2 
+    mean_sqrd_err = np.mean(Y)
 
-    Y_mean = sum(Y)/len(Y)
-    for i in range (len(Y)):
-        Y[i]  = (Y[i] - Y_mean)**2 
-    mean_sqrd_err = sum(Y)/len(Y)
     return mean_sqrd_err
 
-def best_split_point(Y: pd.Series, attr: pd.Series) -> list:
+def best_split_point(Y: pd.Series, column: pd.Series) -> list:
     # Criterion has to be MSE
 
-    if len(attr) == 1:
-        return [attr[0],0]
+    if len(column) == 1:
+        return [column.iloc[0],0]
+    elif len(column) == 0:
+        return 
     
-    attr = sorted(attr)
-    best_split_value = (attr[0]+attr[1])/2
-    Y_left = [y for y, a in zip(Y, attr) if a <= best_split_value]
-    Y_right = [y for y, a in zip(Y, attr) if a > best_split_value]
-    min_mse = (len(Y_left)*MSE(Y_left) + len(Y_right)*MSE(Y_right))/len(Y)
-    for i in range (1,len(attr)-1):
-        split_value = (attr[i]+attr[i+1])/2
-        Y_left = [y for y, a in zip(Y, attr) if a <= best_split_value]
-        Y_right = [y for y, a in zip(Y, attr) if a > best_split_value]
+    S = column.sort_values()
+
+    best_split_value = (S.iloc[0]+S.iloc[1])/2
+    Y_left = S[S<=best_split_value]
+    Y_right = S[S>best_split_value]
+    min_mse = mse = (len(Y_left)*MSE(Y_left) + len(Y_right)*MSE(Y_right))/len(Y)
+
+    for i in range(len(S)-1):
+        split_value = (S.iloc[i]+S.iloc[i+1])/2
+        Y_left = S[S<=best_split_value]
+        Y_right = S[S>best_split_value]
         mse = (len(Y_left)*MSE(Y_left) + len(Y_right)*MSE(Y_right))/len(Y)
         if mse < min_mse:
             min_mse = mse
@@ -89,7 +94,7 @@ def information_gain(Y: pd.Series, attr: pd.Series, criterion: str) -> float:
     Function to calculate the information gain using criterion (entropy, gini_index or MSE)
     """
 
-    if criterion == "entropy":
+    if (criterion == "entropy"):
         impurity_before = entropy(Y)
     elif criterion == "gini_index":
         impurity_before = gini_index(Y)
@@ -116,6 +121,7 @@ def information_gain(Y: pd.Series, attr: pd.Series, criterion: str) -> float:
             impurity_after += (len(values_given_label)/Y.size) * sub_impurity_after
     
     information_gain = impurity_before - impurity_after
+
     return information_gain
 
 
@@ -132,24 +138,20 @@ def opt_split_attribute(X: pd.DataFrame, y: pd.Series, criterion, features: pd.S
 
     # According to wheather the features are real or discrete valued and the criterion, find the attribute from the features series with the maximum information gain (entropy or varinace based on the type of output) or minimum gini index (discrete output).
 
-    # if check_ifreal(features):
-    #     return best_split_point(y, features)[0]
-
     max_info_gain = 0
     opt_attrbt = None
 
     for _ in features:
         info_gain = information_gain(y, X[_], criterion)
-        print("Feature",_,"info gain",info_gain)
+
         if info_gain >= max_info_gain:
             max_info_gain = info_gain
             opt_attrbt = _
         
-    
     return opt_attrbt
 
 
-def split_data(X: pd.DataFrame, y: pd.Series, attribute, value):
+def split_data(X: pd.DataFrame, y: pd.Series, column, value):
     """
     Funtion to split the data according to an attribute.
     If needed you can split this function into 2, one for discrete and one for real valued features.
@@ -163,12 +165,12 @@ def split_data(X: pd.DataFrame, y: pd.Series, attribute, value):
 
     # Split the data based on a particular value of a particular attribute. You may use masking as a tool to split the data.
 
-    if check_ifreal(attribute):
-        left = (X[attribute] <= value)
-        right = (X[attribute] >= value)
+    if check_ifreal(column):
+        left = (column <= value)
+        right = (column >= value)
     else:
-        left = (X[attribute] == value)
-        right = (X[attribute] != value)
+        left = (column == value)
+        right = (column != value)
 
     X_left, X_right = X[left], X[right]
     y_left, y_right = y[left], y[right]
